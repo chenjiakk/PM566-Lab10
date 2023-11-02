@@ -1,0 +1,206 @@
+---
+title: "Lab10"
+author: "Chenjia Kuang"
+format: html
+editor: visual
+embed-resources: true
+---
+
+## Set up
+
+```{r}
+# install.packages(c("RSQLite", "DBI"))
+
+library(RSQLite)
+library(DBI)
+
+# Initialize a temporary in memory database
+con <- dbConnect(SQLite(), ":memory:")
+
+# Download tables
+actor <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/actor.csv")
+rental <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/rental.csv")
+customer <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/customer.csv")
+payment <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/payment_p2007_01.csv")
+
+# Copy data.frames to database
+dbWriteTable(con, "actor", actor)
+dbWriteTable(con, "rental", rental)
+dbWriteTable(con, "customer", customer)
+dbWriteTable(con, "payment", payment)
+```
+
+```{r}
+dbListTables(con)
+```
+
+TIP: You can use the following QUERY to see the structure of a table
+
+```{sql connection=con }
+PRAGMA table_info(actor)
+```
+
+# **Exercise 1**
+
+```{sql connection=con }
+SELECT actor_id, first_name, last_name
+FROM actor
+ORDER BY last_name, first_name
+```
+
+# **Exercise 2**
+
+```{sql connection=con }
+SELECT actor_id, first_name, last_name
+FROM actor
+WHERE last_name IN ('WILLIAMS', 'DAVIS')
+```
+
+# **Exercise 3**
+
+```{sql connection=con }
+SELECT DISTINCT *
+FROM rental
+WHERE date(rental_date) = '2005-07-05'
+LIMIT 5
+```
+
+# **Exercise 4**
+
+## **Exercise 4.1**
+
+```{sql connection=con }
+SELECT *
+FROM payment
+WHERE amount IN (1.99, 7.99, 9.99)
+```
+
+## **Exercise 4.2**
+
+```{sql connection=con }
+SELECT *
+FROM payment
+WHERE amount > 5
+```
+
+## **Exercise 4.2**
+
+```{sql connection=con }
+SELECT *
+FROM payment
+WHERE (amount >5) AND (amount <8)
+```
+
+# **Exercise 5**
+
+Retrieve all the payment IDs and their amounts from the customers whose last name is \'DAVIS\'.
+
+```{sql connection=con }
+SELECT c.customer_id, c.first_name, c.last_name, p.payment_id, p.amount
+FROM customer AS c
+  INNER JOIN payment AS p
+ON c.customer_id = p.customer_id
+WHERE c.last_name = 'DAVIS'
+```
+
+# **Exercise 6**
+
+## **Exercise 6.1**
+
+Use `COUNT(*)` to count the number of rows in `rental`.
+
+```{sql connection=con }
+SELECT COUNT(*) AS total_rentals
+FROM rental;
+```
+
+## **Exercise 6.2**
+
+Use `COUNT(*)` and `GROUP BY` to count the number of rentals for each `customer_id`.
+
+```{sql connection=con }
+SELECT customer_id, COUNT(*) AS number_of_rentals
+FROM rental
+GROUP BY customer_id;
+```
+
+## **Exercise 6.3**
+
+Repeat the previous query and sort by the count in descending order.
+
+```{sql connection=con }
+SELECT customer_id, COUNT(*) AS rental_count
+FROM rental
+GROUP BY customer_id
+ORDER BY rental_count DESC;
+```
+
+## **Exercise 6.4**
+
+Repeat the previous query but use `HAVING` to only keep the groups with 40 or more.
+
+```{sql connection=con }
+SELECT customer_id, COUNT(*) AS rental_count
+FROM rental
+GROUP BY customer_id
+HAVING COUNT(*) >= 40
+ORDER BY rental_count DESC;
+```
+
+# **Exercise 7**
+
+Write a query that calculates a number of summary statistics for the payment table using `MAX`, `MIN`, `AVG` and `SUM`
+
+```{sql connection=con }
+SELECT
+    MAX(amount) AS MaxAmount,
+    MIN(amount) AS MinAmount,
+    AVG(amount) AS AvgAmount,
+    SUM(amount) AS TotalAmount
+FROM
+    payment;
+```
+
+## **Exercise 7.1**
+
+Modify the above query to do those calculations for each `customer_id`.
+
+```{sql connection=con }
+SELECT
+    customer_id,
+    MAX(amount) AS MaxAmount,
+    MIN(amount) AS MinAmount,
+    AVG(amount) AS AvgAmount,
+    SUM(amount) AS TotalAmount
+FROM
+    payment
+GROUP BY
+    customer_id;
+```
+
+## **Exercise 7.2**
+
+Modify the above query to only keep the `customer_id`s that have more then 5 payments.
+
+```{sql connection=con }
+SELECT
+    customer_id,
+    MAX(amount) AS MaxAmount,
+    MIN(amount) AS MinAmount,
+    AVG(amount) AS AvgAmount,
+    SUM(amount) AS TotalAmount,
+    COUNT(payment_id) AS NumberOfPayments
+FROM
+    payment
+GROUP BY
+    customer_id
+HAVING
+    COUNT(payment_id) > 5;
+```
+
+# **Cleanup**
+
+```{r}
+# clean up
+dbDisconnect(con)
+```
